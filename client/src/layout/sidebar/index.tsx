@@ -92,9 +92,9 @@ export default function AppSidebar() {
           <SidebarGroupLabel>Main</SidebarGroupLabel>
           <SidebarMenu>
             <SidebarMenuItem>
-              <button className='flex items-center gap-3 px-3 py-2 rounded-md text-[#dc4c3e] w-full hover:bg-[#e05b4d]'>
+              <button className='flex items-center gap-3 px-3 py-2 rounded-md text-[#dc4c3e] w-full] cursor-pointer'>
                 <FaPlusCircle className='h-5 w-5' />
-                <span className='text-2xl'>Add Task</span>
+                <span className=''>Add Task</span>
               </button>
             </SidebarMenuItem>
             <SidebarMenuItem>
@@ -137,7 +137,7 @@ export default function AppSidebar() {
         {/* Projects Section */}
         <SidebarGroup>
           <div
-            className='flex items-center justify-between cursor-pointer px-3 py-2 rounded-md hover:bg-[#343541]'
+            className='flex items-center justify-between cursor-pointer px-3 py-2 rounded-md'
             onClick={() => setProjectsOpen(!projectsOpen)}
           >
             <div className='flex items-center gap-2'>
