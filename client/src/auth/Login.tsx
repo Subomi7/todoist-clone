@@ -6,7 +6,7 @@ import loginimg from '../assets/login.png';
 
 const Login = () => {
   return (
-    <div className='flex flex-col gap-24 container mx-auto px-20 lg:px-72 py-8'>
+    <div className='flex flex-col justify-center gap-24 container mx-auto px-20 lg:px-72 py-8'>
       <nav className='flex items-center'>
         <div className='flex items-center gap-2 logo-container'>
           <Link to='/'>
@@ -20,7 +20,7 @@ const Login = () => {
         <div className='divider'>
           <p></p>
         </div>
-        <div className='flex flex-col items-center lg:flex-row  gap-x-40 mt-7'>
+        <div className='flex flex-col lg:items-center lg:flex-row  gap-x-40 mt-7'>
           <div className='w-full lg:w-[60%] max-w-sm space-y-4'>
             <div className='border-t border-gray-300 pt-4 hidden lg:block'></div>
 

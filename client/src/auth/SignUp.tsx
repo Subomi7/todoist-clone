@@ -21,7 +21,7 @@ const SignUp = () => {
             <div className='divider'>
               <p></p>
             </div>
-            <div className='flex flex-col items-center lg:flex-row  gap-x-40 mt-7'>
+            <div className='flex flex-col lg:items-center lg:flex-row  gap-x-40 mt-7'>
               <div className='w-full lg:w-[60%] max-w-sm space-y-4'>
                 <div className='border-t border-gray-300 pt-4 hidden lg:block'></div>
     
