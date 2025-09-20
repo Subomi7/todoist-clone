@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
-import { FaPlusCircle } from "react-icons/fa";
+import { FaPlusCircle } from 'react-icons/fa';
 import {
   Sidebar,
   SidebarContent,
@@ -9,8 +9,9 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarFooter,
+  SidebarHeader,
   SidebarTrigger,
+  useSidebar,
 } from '@/components/ui/sidebar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -19,9 +20,11 @@ import {
   CheckCircle2,
   ChevronDown,
   MoreHorizontal,
-  LayoutGrid,
 } from 'lucide-react';
 import profile from '../../assets/profile.png';
+import { Dialog, DialogTrigger } from '@/components/ui/dialog';
+import ModalContent from '@/components/AddTaskModalContent';
+import { useLocation } from 'react-router-dom';
 
 // Project type
 interface Project {
@@ -64,6 +67,21 @@ export default function AppSidebar() {
   const [newProjectName, setNewProjectName] = useState('');
   const [selectedColor, setSelectedColor] = useState('bg-blue-500');
 
+  const location = useLocation();
+  const pathname = location.pathname || '/';
+
+  const active =
+    pathname === '/' || pathname === '/inbox'
+      ? 'inbox'
+      : pathname.startsWith('/completed')
+      ? 'completed'
+      : pathname.startsWith('/projects')
+      ? 'projects'
+      : '';
+
+  const baseLink =
+    'flex items-center gap-3 px-3 py-2 rounded-md transition-colors duration-150';
+
   useEffect(() => {
     setProjects(mockProjects);
   }, []);
@@ -84,30 +102,73 @@ export default function AppSidebar() {
     setShowCreateProject(false);
   };
 
+  const sidebarCtx = useSidebar() as any; // cast to any to be flexible
+  let isSidebarOpen = false;
+
+  if (sidebarCtx !== undefined && sidebarCtx !== null) {
+    if (typeof sidebarCtx.isOpen === 'boolean')
+      isSidebarOpen = sidebarCtx.isOpen;
+    else if (typeof sidebarCtx.open === 'boolean')
+      isSidebarOpen = sidebarCtx.open;
+    else if (typeof sidebarCtx.state === 'string')
+      isSidebarOpen = ['open', 'opened'].includes(sidebarCtx.state);
+    // if your hook uses a different field name, replace above accordingly.
+  }
+
+  // left positions: adjust these pixel values to match your sidebar width/layout.
+  // - when open: place trigger near the sidebar edge (e.g. 240px)
+  // - when closed: pull it to the left so it's still visible (e.g. 16px)
+  const triggerPositionClass = isSidebarOpen ? 'left-[220px]' : 'left-4';
+
   return (
     <Sidebar className='bg-[#fcfaf8] text-black border-r'>
+      <SidebarTrigger
+        className={`fixed ${triggerPositionClass} top-6 z-50 p-2 rounded-md shadow hover:bg-slate-100 transition-all duration-200`}
+        aria-label='Toggle sidebar'
+      />
       <SidebarContent>
         {/* Menu Section */}
         <SidebarGroup>
-          <SidebarGroupLabel>Main</SidebarGroupLabel>
+          {/* Header Profile */}
+          <SidebarHeader className='border-d border-gray-800 px-3 py-3 flex flex-row items justify-between'>
+            <div className='flex items-center gap-3'>
+              <img
+                src={profile}
+                alt='Profile'
+                className='w-9 h-9 rounded-full object-cover'
+              />
+              <div>
+                <p className='text-sm font-medium'>Jon Doe</p>
+                <p className='text-xs text-gray-400'>Free Plan</p>
+              </div>
+            </div>
+            {/* <SidebarTrigger
+              className="absolute -right-0 top-6 z-10 shadow-md"
+            /> */}
+          </SidebarHeader>
           <SidebarMenu>
             <SidebarMenuItem>
-              <button className='flex items-center gap-3 px-3 py-2 rounded-md text-[#dc4c3e] w-full] cursor-pointer'>
-                <FaPlusCircle className='h-5 w-5' />
-                <span className=''>Add Task</span>
-              </button>
+              <Dialog>
+                <form>
+                  <DialogTrigger asChild>
+                    <button className='flex items-center gap-3 px-3 py-2 rounded-md text-[#dc4c3e] w-full] cursor-pointer'>
+                      <FaPlusCircle className='h-5 w-5' />
+                      <span className=''>Add Task</span>
+                    </button>
+                  </DialogTrigger>
+                  <ModalContent />
+                </form>
+              </Dialog>
             </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton asChild>
                 <NavLink
                   to='/'
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 px-3 py-2 rounded-md ${
-                      isActive
-                        ? 'bg-[#7a7b81] text-white'
-                        : 'hover:bg-[#9c9c9e]'
-                    }`
-                  }
+                  className={`${baseLink} ${
+                    active === 'inbox'
+                      ? 'bg-[#ffefe5] text-[#dc4c3e] font-medium'
+                      : 'bg-[#fafafa] text-black hover:bg-[#ffefe5] hover:text-[#dc4c3e]'
+                  }`}
                 >
                   <Inbox className='h-5 w-5' />
                   <span>Inbox</span>
@@ -118,13 +179,11 @@ export default function AppSidebar() {
               <SidebarMenuButton asChild>
                 <NavLink
                   to='/completed'
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 px-3 py-2 rounded-md ${
-                      isActive
-                        ? 'bg-[#343541] text-white'
-                        : 'hover:bg-[#343541]'
-                    }`
-                  }
+                  className={`${baseLink} ${
+                    active === 'completed'
+                      ? 'bg-[#ffefe5] text-[#dc4c3e] font-medium'
+                      : 'bg-[#fafafa] text-black hover:bg-[#ffefe5] hover:text-[#dc4c3e]'
+                  }`}
                 >
                   <CheckCircle2 className='h-5 w-5' />
                   <span>Completed</span>
@@ -219,22 +278,6 @@ export default function AppSidebar() {
           )}
         </SidebarGroup>
       </SidebarContent>
-
-      {/* Footer Profile */}
-      <SidebarFooter className='border-t border-gray-800 px-3 py-3 flex items-center justify-between'>
-        <div className='flex items-center gap-3'>
-          <img
-            src={profile}
-            alt='Profile'
-            className='w-9 h-9 rounded-full object-cover'
-          />
-          <div>
-            <p className='text-sm font-medium'>Jon Doe</p>
-            <p className='text-xs text-gray-400'>Free Plan</p>
-          </div>
-        </div>
-        <SidebarTrigger className='fixed bottom-4 left-4' />
-      </SidebarFooter>
     </Sidebar>
   );
 }

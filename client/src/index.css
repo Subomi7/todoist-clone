@@ -118,3 +118,19 @@
     @apply bg-background text-foreground;
   }
 }
+
+
+.inbox-container {
+  max-width: 900px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+@layer components {
+  .main-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 1rem;
+  }
+}

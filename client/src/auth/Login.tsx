@@ -1,10 +1,62 @@
-import React from 'react';
+import React, { useState } from 'react';
 import '../styles/Login.css';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import todoist from '../assets/todoist.png';
 import loginimg from '../assets/login.png';
+import { loginApi } from '@/api/auth';
+import { Spinner } from '@/components/Spinner';
 
-const Login = () => {
+type LoginApiResponse = {
+  ok: boolean;
+  token?: string;
+  data?: {
+    token?: string;
+    message?: string;
+    [key: string]: string | undefined;
+  };
+  message?: string;
+  [key: string]: unknown;
+};
+
+const Login: React.FC = () => {
+  const navigate = useNavigate();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    if (!email || !password) {
+      setError('Email and password are required');
+      return;
+    }
+
+    setLoading(true);
+    const res = (await loginApi(
+      email,
+      password
+    )) as unknown as LoginApiResponse;
+    setLoading(false);
+
+    if (res.ok) {
+      if (res.token) {
+        localStorage.setItem('auth_token', res.token);
+      } else if (res.data && res.data.token) {
+        localStorage.setItem('auth_token', res.data.token);
+      }
+      navigate('/');
+    } else {
+      setError(
+        res.message ||
+          res.data?.message ||
+          'Login failed. Check credentials and try again.'
+      );
+    }
+  };
+
   return (
     <div className='flex flex-col justify-center gap-24 container mx-auto px-20 lg:px-72 py-8'>
       <nav className='flex items-center'>
@@ -21,15 +73,18 @@ const Login = () => {
           <p></p>
         </div>
         <div className='flex flex-col lg:items-center lg:flex-row  gap-x-40 mt-7'>
-          <div className='w-full lg:w-[60%] max-w-sm space-y-4'>
+          <form onSubmit={handleSubmit} className='w-full lg:w-[60%] max-w-sm space-y-4'>
             <div className='border-t border-gray-300 pt-4 hidden lg:block'></div>
 
             <div className='relative border rounded-lg px-3 pt-5 pb-2 h-16'>
               <label className='absolute top-1.5 left-3 text-xs'>Email</label>
               <input
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 type='email'
                 className='w-full border-0 focus:ring-0 focus:outline-none'
                 placeholder='Enter your email...'
+                autoComplete='email'
               />
             </div>
             <div className='relative border rounded-lg px-3 pt-5 pb-2 h-16'>
@@ -37,9 +92,12 @@ const Login = () => {
                 Password
               </label>
               <input
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 type='password'
                 className='w-full border-0 focus:ring-0 focus:outline-none'
                 placeholder='Enter your password...'
+                autoComplete='current-password'
               />
               <svg
                 xmlns='http://www.w3.org/2000/svg'
@@ -62,8 +120,22 @@ const Login = () => {
                 />
               </svg>
             </div>
-            <button className='login-btn rounded-md w-full h-12'>
-              Log in
+
+            {error && <div className='text-sm text-red-600'>{error}</div>}
+
+            <button
+              type='submit'
+              disabled={loading}
+              className='login-btn rounded-md w-full h-12'
+            >
+              {loading ? (
+                <>
+                  <Spinner />
+                  Logging in...
+                </>
+              ) : (
+                'Log in'
+              )}
             </button>
             <p className='text-sm'>
               By continuing with Google, Apple, or Email, you agree to Todoist’s{' '}
@@ -78,7 +150,7 @@ const Login = () => {
                 Sign up
               </Link>
             </p>
-          </div>
+          </form>
           <img
             src={loginimg}
             alt=''
