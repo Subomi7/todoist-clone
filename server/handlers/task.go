@@ -15,7 +15,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-    "go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // db timeout used across handlers (same as other handlers)
@@ -122,7 +122,6 @@ func validatePriority(p int) (models.Priority, error) {
 // CreateTask creates a task with title, description, dueDate, priority and project.
 // - If projectId omitted, uses (or creates) the user's Inbox project.
 func CreateTask(c *fiber.Ctx) error {
-    // user id from JWT middleware
     uidRaw := c.Locals("user_id")
     uidStr, ok := uidRaw.(string)
     if !ok || uidStr == "" {
@@ -143,13 +142,13 @@ func CreateTask(c *fiber.Ctx) error {
         return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "title is required"})
     }
 
-    // priority: convert int -> models.Priority
-    priorityVal, err := validatePriority(dto.Priority) // keep your existing validatePriority
+    // validate priority
+    priorityVal, err := validatePriority(dto.Priority)
     if err != nil {
         return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid priority; allowed: 1 (Low), 2 (Medium), 3 (High)"})
     }
 
-    // due date: parse RFC3339 string -> *time.Time
+    // parse due date
     var dueDatePtr *time.Time
     if s := strings.TrimSpace(dto.DueDate); s != "" {
         parsed, err := time.Parse(time.RFC3339, s)
@@ -160,22 +159,39 @@ func CreateTask(c *fiber.Ctx) error {
         dueDatePtr = &t
     }
 
-    // resolve project: if none provided, use Inbox (real project)
     ctx, cancel := context.WithTimeout(context.Background(), dbOpTimeout)
     defer cancel()
 
-    var projectID primitive.ObjectID
+    now := time.Now().UTC()
+    var task models.Task
+
     if strings.TrimSpace(dto.ProjectID) == "" {
-        projectID, err = getInboxProjectID(ctx, userID)
+        // No project provided → resolve Inbox
+        inboxID, err := GetInboxProjectID(ctx, userID)
         if err != nil {
             return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not resolve inbox"})
         }
+
+        task = models.Task{
+            ID:          primitive.NewObjectID(),
+            UserID:      userID,
+            ProjectID:   inboxID,   // still stored as project
+            InboxID:     &inboxID,  // explicit marker
+            Title:       title,
+            Description: strings.TrimSpace(dto.Description),
+            DueDate:     dueDatePtr,
+            Priority:    priorityVal,
+            Completed:   false,
+            CreatedAt:   now,
+            UpdatedAt:   now,
+        }
     } else {
-        projectID, err = primitive.ObjectIDFromHex(dto.ProjectID)
+        // Project provided → validate and use
+        projectID, err := primitive.ObjectIDFromHex(dto.ProjectID)
         if err != nil {
             return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid projectId"})
         }
-        // ensure project belongs to the user
+
         var proj models.Project
         if err := db.ProjectsCol().FindOne(ctx, bson.M{"_id": projectID, "user_id": userID}).Decode(&proj); err != nil {
             if err == mongo.ErrNoDocuments {
@@ -183,20 +199,20 @@ func CreateTask(c *fiber.Ctx) error {
             }
             return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to verify project"})
         }
-    }
 
-    now := time.Now().UTC()
-    task := models.Task{
-        ID:          primitive.NewObjectID(),
-        UserID:      userID,
-        ProjectID:   projectID,
-        Title:       title,
-        Description: strings.TrimSpace(dto.Description),
-        DueDate:     dueDatePtr,           // <-- pointer, not string
-        Priority:    priorityVal,          // <-- enum, not int
-        Completed:   false,
-        CreatedAt:   now,
-        UpdatedAt:   now,
+        task = models.Task{
+            ID:          primitive.NewObjectID(),
+            UserID:      userID,
+            ProjectID:   projectID,
+            InboxID:     nil, // not an inbox task
+            Title:       title,
+            Description: strings.TrimSpace(dto.Description),
+            DueDate:     dueDatePtr,
+            Priority:    priorityVal,
+            Completed:   false,
+            CreatedAt:   now,
+            UpdatedAt:   now,
+        }
     }
 
     if _, err := db.TasksCol().InsertOne(ctx, task); err != nil {
@@ -242,34 +258,39 @@ func parseListQuery(c *fiber.Ctx) ListQuery {
 }
 
 // buildFilter constructs a MongoDB filter for listing tasks based on user ID and query parameters.
-func buildFilter(uid primitive.ObjectID, q ListQuery, projectID string) bson.M {
-	filter := bson.M{
-		"userId": uid,
-	}
+func buildFilter(uid primitive.ObjectID, q ListQuery, projectID string, inboxOnly bool) bson.M {
+    filter := bson.M{
+        "userId": uid,
+    }
 
-	// project filter
-	if strings.TrimSpace(projectID) != "" {
-		if projectID == "inbox" {
-			filter["projectId"] = primitive.NilObjectID
-		} else {
-			if pid, err := primitive.ObjectIDFromHex(projectID); err == nil {
-				filter["projectId"] = pid
-			}
-		}
-	}
+     // if inboxOnly flag, filter by inboxId
+    if inboxOnly {
+        ctx, cancel := context.WithTimeout(context.Background(), dbOpTimeout)
+        defer cancel()
 
-	if q.Completed != nil {
-		filter["completed"] = *q.Completed
-	}
-	if q.Search != "" {
-		// Search in title and description (case-insensitive)
-		filter["$or"] = []bson.M{
-			{"title": bson.M{"$regex": q.Search, "$options": "i"}},
-			{"description": bson.M{"$regex": q.Search, "$options": "i"}},
-		}
-	}
-	return filter
+        inboxID, err := GetInboxProjectID(ctx, uid)
+        if err == nil {
+            filter["inboxId"] = inboxID
+        }
+    } else if strings.TrimSpace(projectID) != "" {
+        // filter by projectId if provided
+        if pid, err := primitive.ObjectIDFromHex(projectID); err == nil {
+            filter["projectId"] = pid
+        }
+    }
+
+    if q.Completed != nil {
+        filter["completed"] = *q.Completed
+    }
+    if q.Search != "" {
+        filter["$or"] = []bson.M{
+            {"title": bson.M{"$regex": q.Search, "$options": "i"}},
+            {"description": bson.M{"$regex": q.Search, "$options": "i"}},
+        }
+    }
+    return filter
 }
+
 
 // GetTasks returns a paginated list of tasks for the authenticated user.
 // supports ?page=&pageSize=&completed=&search=&sortBy=
@@ -280,8 +301,14 @@ func GetTasks(c *fiber.Ctx) error {
     }
     q := parseListQuery(c)
     projectID := c.Query("projectId", "")
+	inboxOnly := c.Query("inbox") == "true"
 
-    filter := buildFilter(uid, q, projectID)
+	if inboxOnly && projectID != "" {
+    return c.Status(fiber.StatusBadRequest).
+        JSON(fiber.Map{"error": "cannot filter by both inbox and projectId"})
+}
+
+    filter := buildFilter(uid, q, projectID, inboxOnly)
 
     ctx, cancel := context.WithTimeout(context.Background(), dbOpTimeout)
     defer cancel()

@@ -5,9 +5,9 @@ import { Outlet } from 'react-router-dom';
 function RootLayout() {
   return (
     <SidebarProvider>
-      <div className='w-full flex gap-5'>
+      <div className='w-full flex gap-5 overflow-y-hidden'>
         <Sidebar />
-        <main className='flex-1 py-4 px-4 w-full'>
+        <main className='flex-1 px-4 w-full'>
           <Outlet />
         </main>
       </div>

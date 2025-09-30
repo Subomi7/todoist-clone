@@ -1,0 +1,20 @@
+[
+  {
+    "id": 1,
+    "name": "inbox",
+    "title": "Buy groceries",
+    "dueDate": "2026-10-01"
+  },
+  {
+    "id": 2,
+    "name": "inbox",
+    "title": "Walk the dog",
+    "dueDate": "2026-10-02"
+  },
+  {
+    "id": 3,
+    "name": "inbox",
+    "title": "Read a book",
+    "dueDate": "2026-10-03"
+  }
+]

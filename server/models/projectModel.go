@@ -8,7 +8,7 @@ import (
 
 type Project struct {
 	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	UserID      primitive.ObjectID `bson:"user_id" json:"user_id"`
+	UserID      primitive.ObjectID `bson:"userId" json:"userId"`
 	Name        string              `bson:"name" json:"name"`
 	Description string              `bson:"description" json:"description"`
 	IsSystem    bool                `bson:"is_system" json:"is_system"`

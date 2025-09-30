@@ -27,9 +27,10 @@ func SetupAndRunApp() error {
 		Format: "[${ip}]:${port} ${status} - ${method} ${path} ${latency}\n",
 	}))
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "http://localhost:5173",
-		 AllowHeaders:     "Origin, Content-Type, Accept",
+		AllowOrigins: "http://localhost:5173, http://127.0.0.1:5173",
+		 AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
         AllowMethods:     "GET, POST, PUT, DELETE, OPTIONS",
+		ExposeHeaders:    "Content-Type, Authorization",
         AllowCredentials: true,
 	}))
 

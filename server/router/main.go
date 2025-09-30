@@ -25,8 +25,4 @@ func SetupRoutes(app *fiber.App) {
 	projects.Get("/:id", handlers.GetProject)
 	projects.Put("/:id", handlers.UpdateProject)
 	projects.Delete("/:id", handlers.DeleteProject)
-
-	projectTasks := projects.Group("/:id/tasks")
-projectTasks.Get("/", handlers.GetProjects)
-
 }

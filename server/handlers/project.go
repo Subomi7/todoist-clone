@@ -36,38 +36,6 @@ type ProjectsListResponse struct {
 	Meta models.PaginationMeta `json:"meta"`
 }
 
-// helper to get projects collection
-func getInboxProjectID(ctx context.Context, userID primitive.ObjectID) (primitive.ObjectID, error) {
-    col := db.ProjectsCol()
-
-    // Try to find existing Inbox
-    var proj models.Project
-    err := col.FindOne(ctx, bson.M{
-        "user_id": userID,
-        "name":    "Inbox",
-    }).Decode(&proj)
-
-    if err == mongo.ErrNoDocuments {
-        // If not found, create one
-        now := time.Now().UTC()
-        proj = models.Project{
-            ID:        primitive.NewObjectID(),
-            UserID:    userID,
-            Name:      "Inbox",
-            CreatedAt: now,
-            UpdatedAt: now,
-        }
-        _, err := col.InsertOne(ctx, proj)
-        if err != nil {
-            return primitive.NilObjectID, err
-        }
-        return proj.ID, nil
-    } else if err != nil {
-        return primitive.NilObjectID, err
-    }
-
-    return proj.ID, nil
-}
 
 
 // getUserIdFromCtx (re-use your JWT local name "user_id")
@@ -291,7 +259,7 @@ func DeleteProject(c *fiber.Ctx) error {
     }
 
     // Find the user's Inbox project ID
-    inboxID, err := getInboxProjectID(ctx, userID)
+    inboxID, err := GetInboxProjectID(ctx, userID)
     if err != nil {
         return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not resolve inbox"})
     }

@@ -19,6 +19,7 @@ type Task struct {
 	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 	UserID      primitive.ObjectID `bson:"userId" json:"userId"`
 	ProjectID   primitive.ObjectID `bson:"projectId" json:"projectId"`
+    InboxID     *primitive.ObjectID `bson:"inboxId,omitempty" json:"inboxId,omitempty"`
 	Title       string             `bson:"title" json:"title"`
 	Description string             `bson:"description,omitempty" json:"description,omitempty"`
 	DueDate     *time.Time         `bson:"dueDate,omitempty" json:"dueDate,omitempty"` // optional
