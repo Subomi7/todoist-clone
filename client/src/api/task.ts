@@ -54,14 +54,27 @@ export async function createTask(
   }
 }
 
-export async function getTasks(projectId?: string, completed?: boolean) {
+// src/api/task.ts
+export async function getTasks(
+  projectId?: string,
+  completed?: boolean,
+  inboxOnly?: boolean
+) {
   const token = localStorage.getItem('auth_token');
   if (!token) throw new Error('Not authenticated');
 
   const url = new URL(`${API_URL}/tasks`);
-  if (projectId) url.searchParams.set('projectId', projectId);
-  if (completed !== undefined)
+
+  // ✅ explicit logic — inbox beats projectId
+  if (inboxOnly) {
+    url.searchParams.set('inbox', 'true');
+  } else if (projectId) {
+    url.searchParams.set('projectId', projectId);
+  }
+
+  if (completed !== undefined) {
     url.searchParams.set('completed', String(completed));
+  }
 
   const res = await fetch(url.toString(), {
     headers: {
@@ -76,7 +89,7 @@ export async function getTasks(projectId?: string, completed?: boolean) {
     throw new Error(json?.error ?? json?.message ?? 'Failed to fetch tasks');
   }
 
-  // normalize backend 'id' => _id and projectId sentinel -> null
+  // normalize backend 'id' => _id
   const items = (json?.data ?? []) as any[];
   const tasks = items.map((t) => ({
     ...t,
@@ -127,9 +140,30 @@ export async function updateTask(
     }
 
     const returned = json?.data ?? json;
-    return { ok: true, data: { task: { ...returned, _id: returned.id ?? returned._id } } };
+    return {
+      ok: true,
+      data: { task: { ...returned, _id: returned.id ?? returned._id } },
+    };
   } catch (err) {
     console.error('updateTask error:', err);
     return { ok: false, message: 'Network error', status: 0 };
   }
+}
+
+export async function deleteTask(id: string) {
+  const token = localStorage.getItem('auth_token');
+  if (!token) throw new Error('Not authenticated');
+
+  const res = await fetch(`${API_URL}/tasks/${id}`, {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => null);
+    throw new Error(err?.error || 'Failed to delete task');
+  }
+  return true;
 }

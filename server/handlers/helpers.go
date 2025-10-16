@@ -22,7 +22,7 @@ func GetInboxProjectID(ctx context.Context, userID primitive.ObjectID) (primitiv
     }).Decode(&proj)
 
     if err == mongo.ErrNoDocuments {
-        now := time.Now().UTC()
+        now := time.Now().UTC() 
         proj = models.Project{
             ID:        primitive.NewObjectID(),
             UserID:    userID,

@@ -1,5 +1,5 @@
 // src/api/project.ts
-import type { Project } from "@/types/project";
+import type { Project } from '@/types/project';
 
 export type ApiResponse<T = unknown> = {
   ok: boolean;
@@ -15,20 +15,53 @@ type ProjectApiShape =
   | Project[]
   | { message?: string; error?: string };
 
-const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8080/api";
+const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8080/api';
 
-export async function getProjects(): Promise<ApiResponse<Project[]>> {
-  const token = localStorage.getItem("auth_token");
+// src/api/project.ts
+export async function createProject(payload: {
+  name: string;
+  description?: string;
+  isSystem?: boolean;
+}): Promise<ApiResponse<Project>> {
+  const token = localStorage.getItem('auth_token');
   if (!token) {
-    return { ok: false, status: 401, message: "Not authenticated" };
+    return { ok: false, status: 401, message: 'Not authenticated' };
   }
 
   try {
     const res = await fetch(`${BASE}/projects`, {
-      method: "GET",
+      method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const json = await res.json().catch(() => null);
+    return {
+      ok: res.ok,
+      status: res.status,
+      data: json?.data ?? json,
+      message: json?.message ?? undefined,
+    };
+  } catch (err) {
+    return { ok: false, status: 0, message: 'Network error' };
+  }
+}
+
+export async function getProjects(): Promise<ApiResponse<Project[]>> {
+  const token = localStorage.getItem('auth_token');
+  if (!token) {
+    return { ok: false, status: 401, message: 'Not authenticated' };
+  }
+
+  try {
+    const res = await fetch(`${BASE}/projects`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
       },
       // credentials: "include", // enable if you rely on cookies
     });
@@ -41,19 +74,18 @@ export async function getProjects(): Promise<ApiResponse<Project[]>> {
     // - [projects]
     let projects: Project[] | undefined;
 
-if (json) {
-  const parsed = json as ProjectApiShape;
-  if (Array.isArray((parsed as any).data)) {
-    projects = (parsed as { data: Project[] }).data;
-  } else if (Array.isArray((parsed as any).Data)) {
-    projects = (parsed as { Data: Project[] }).Data;
-  } else if (Array.isArray(parsed as Project[])) {
-    projects = parsed as Project[];
-  } else if (Array.isArray((parsed as any).projects)) {
-    projects = (parsed as { projects: Project[] }).projects;
-  }
-}
-
+    if (json) {
+      const parsed = json as ProjectApiShape;
+      if (Array.isArray((parsed as any).data)) {
+        projects = (parsed as { data: Project[] }).data;
+      } else if (Array.isArray((parsed as any).Data)) {
+        projects = (parsed as { Data: Project[] }).Data;
+      } else if (Array.isArray(parsed as Project[])) {
+        projects = parsed as Project[];
+      } else if (Array.isArray((parsed as any).projects)) {
+        projects = (parsed as { projects: Project[] }).projects;
+      }
+    }
 
     const message =
       (json && ((json as any).message || (json as any).error)) ?? undefined;
@@ -65,6 +97,25 @@ if (json) {
       message,
     };
   } catch (err) {
-    return { ok: false, status: 0, message: "Network error" };
+    return { ok: false, status: 0, message: 'Network error' };
+  }
+}
+
+export async function deleteProject(id: string): Promise<ApiResponse> {
+  const token = localStorage.getItem('auth_token');
+  if (!token) return { ok: false, status: 401, message: 'Not authenticated' };
+
+  try {
+    const res = await fetch(`${BASE}/projects/${id}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const json = await res.json().catch(() => ({}));
+    return { ok: res.ok, status: res.status, message: json.message ?? 'Done' };
+  } catch {
+    return { ok: false, status: 0, message: 'Network error' };
   }
 }

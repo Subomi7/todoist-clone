@@ -99,22 +99,6 @@ func validatePriority(p int) (models.Priority, error) {
 // 		return primitive.NilObjectID, nil // NIL indicates "inbox"
 // 	}
 
-// 	// parse provided projectId
-// 	pid, err := primitive.ObjectIDFromHex(projectId)
-// 	if err != nil {
-// 		return primitive.NilObjectID, errors.New("invalid projectId")
-// 	}
-
-// 	// ensure project belongs to user
-// 	var proj models.Project
-// 	if err := col.FindOne(ctx, bson.M{"_id": pid, "user_id": userID}).Decode(&proj); err != nil {
-// 		if err == mongo.ErrNoDocuments {
-// 			return primitive.NilObjectID, errors.New("project not found")
-// 		}
-// 		return primitive.NilObjectID, err
-// 	}
-// 	return proj.ID, nil
-// }
 
 
 
@@ -193,7 +177,7 @@ func CreateTask(c *fiber.Ctx) error {
         }
 
         var proj models.Project
-        if err := db.ProjectsCol().FindOne(ctx, bson.M{"_id": projectID, "user_id": userID}).Decode(&proj); err != nil {
+        if err := db.ProjectsCol().FindOne(ctx, bson.M{"_id": projectID, "userId": userID}).Decode(&proj); err != nil {
             if err == mongo.ErrNoDocuments {
                 return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "project not found"})
             }
@@ -395,6 +379,9 @@ func UpdateTask(c *fiber.Ctx) error {
     Title       *string `json:"title,omitempty"`
     Description *string `json:"description,omitempty"`
     Completed   *bool   `json:"completed,omitempty"`
+    DueDate     *time.Time          `json:"dueDate,omitempty"`
+	Priority    *models.Priority    `json:"priority,omitempty"`
+	ProjectID   *primitive.ObjectID `json:"projectId,omitempty"`
 }
 
 type TaskResponse struct {
@@ -433,6 +420,16 @@ type TaskResponse struct {
 	if dto.Completed != nil {
 		set["completed"] = *dto.Completed
 	}
+	if dto.DueDate != nil {
+		set["dueDate"] = dto.DueDate
+	}
+	if dto.Priority != nil {
+		set["priority"] = *dto.Priority
+	}
+	if dto.ProjectID != nil {
+		set["projectId"] = dto.ProjectID
+	}
+
 
 	// if no fields to update
 	if len(set) == 1 { // only updatedAt present

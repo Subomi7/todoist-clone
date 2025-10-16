@@ -13,7 +13,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 const projectDBtimeout = 8 * time.Second
@@ -107,10 +106,8 @@ func GetProjects(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "unauthorized"})
 	}
 
-	// simple pgination params
 	page := 1
 	pageSize := 10
-
 	if p := c.Query("page", ""); p != "" {
 		if v, err := strconv.Atoi(p); err == nil && v > 0 {
 			page = v
@@ -124,31 +121,79 @@ func GetProjects(c *fiber.Ctx) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), projectDBtimeout)
 	defer cancel()
+
 	col := db.ProjectsCol()
 
-	filter := bson.M{"user_id": userID}
-	total, err := col.CountDocuments(ctx, filter)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error":"failed to count projects"})
+	// Build aggregation pipeline
+	pipeline := mongo.Pipeline{
+		// Only fetch projects belonging to this user
+		{{Key: "$match", Value: bson.M{"userId": userID}}},
+		// Lookup tasks that belong to each project (excluding completed)
+		{
+			{Key: "$lookup", Value: bson.M{
+				"from": "tasks",
+				"let": bson.M{"projId": "$_id"},
+				"pipeline": bson.A{
+					bson.M{
+						"$match": bson.M{
+							"$expr": bson.M{"$and": bson.A{
+								bson.M{"$eq": bson.A{"$projectId", "$$projId"}},
+								bson.M{"$eq": bson.A{"$userId", userID}},
+								bson.M{"$eq": bson.A{"$completed", false}},
+							}},
+						},
+					},
+				},
+				"as": "projectTasks",
+			}},
+		},
+		// Add a taskCount field
+		{{Key: "$addFields", Value: bson.M{"taskCount": bson.M{"$size": "$projectTasks"}}}},
+		// Remove the full tasks array
+		{{Key: "$project", Value: bson.M{"projectTasks": 0}}},
+		// Sort and paginate
+		{{Key: "$sort", Value: bson.M{"created_at": -1}}},
+		{{Key: "$skip", Value: (page - 1) * pageSize}},
+		{{Key: "$limit", Value: pageSize}},
 	}
 
-	skip := int64((page - 1) * pageSize)
-	limit := int64(pageSize)
-	opts := options.Find().SetSkip(skip).SetLimit(limit).SetSort(bson.D{{Key: "createdAt", Value: -1}})
-
-	cur, err := col.Find(ctx, filter, opts)
+	cur, err := col.Aggregate(ctx, pipeline)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error":"failed to find projects"})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to aggregate projects"})
 	}
 	defer cur.Close(ctx)
 
-	var projects []*models.Project
-	if err := cur.All(ctx, &projects); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error":"failed to decode projects"})
+	// Define a custom struct to hold project + taskCount
+	type ProjectWithCount struct {
+		ID          primitive.ObjectID `bson:"_id" json:"id"`
+		UserID      primitive.ObjectID `bson:"userId" json:"userId"`
+		Name        string             `bson:"name" json:"name"`
+		Description string             `bson:"description" json:"description"`
+		IsSystem    bool               `bson:"is_system" json:"is_system"`
+		CreatedAt   time.Time          `bson:"created_at" json:"created_at"`
+		UpdatedAt   time.Time          `bson:"updated_at" json:"updated_at"`
+		TaskCount   int                `bson:"taskCount" json:"taskCount"`
 	}
+
+	var projects []*ProjectWithCount
+	if err := cur.All(ctx, &projects); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to decode aggregated projects"})
+	}
+
+	// Count total (without pagination)
+	total, err := col.CountDocuments(ctx, bson.M{"userId": userID})
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to count projects"})
+	}
+
 	meta := models.PaginationMeta{Page: page, PageSize: pageSize, Total: int(total)}
-	return c.JSON(ProjectsListResponse{Data: projects, Meta: meta})
+
+	return c.JSON(fiber.Map{
+		"data": projects,
+		"meta": meta,
+	})
 }
+
 
 // GetProject - fetch a single project by id (ensures ownership)
 func GetProject(c *fiber.Ctx) error {
@@ -167,7 +212,7 @@ func GetProject(c *fiber.Ctx) error {
 	col := db.ProjectsCol()
 
 	var proj models.Project
-	if err := col.FindOne(ctx, bson.M{"_id": objID, "user_id": userID}).Decode(&proj); err != nil {
+	if err := col.FindOne(ctx, bson.M{"_id": objID, "userId": userID}).Decode(&proj); err != nil {
 		if err == mongo.ErrNoDocuments {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "project not found"})
 		}
@@ -202,7 +247,7 @@ func UpdateProject(c *fiber.Ctx) error {
 	defer cancel()
 	col := db.ProjectsCol()
 
-	res, err := col.UpdateOne(ctx, bson.M{"_id": objID, "user_id": userID}, bson.M{"$set": bson.M{"name": name, "updatedAt": time.Now().UTC()}})
+	res, err := col.UpdateOne(ctx, bson.M{"_id": objID, "userId": userID}, bson.M{"$set": bson.M{"name": name, "updatedAt": time.Now().UTC()}})
 	if err != nil {
 		// duplicate name?
 		if we, ok := err.(mongo.WriteException); ok {
@@ -220,7 +265,7 @@ func UpdateProject(c *fiber.Ctx) error {
 
 	// return updated project
 	var proj models.Project
-	if err := col.FindOne(ctx, bson.M{"_id": objID, "user_id": userID}).Decode(&proj); err != nil {
+	if err := col.FindOne(ctx, bson.M{"_id": objID, "userId": userID}).Decode(&proj); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to fetch updated project"})
 	}
 
@@ -246,7 +291,7 @@ func DeleteProject(c *fiber.Ctx) error {
 
     // ensure project exists & belongs to user
     var proj models.Project
-    if err := pcol.FindOne(ctx, bson.M{"_id": objID, "user_id": userID}).Decode(&proj); err != nil {
+    if err := pcol.FindOne(ctx, bson.M{"_id": objID, "userId": userID}).Decode(&proj); err != nil {
         if err == mongo.ErrNoDocuments {
             return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "project not found"})
         }
@@ -275,7 +320,7 @@ func DeleteProject(c *fiber.Ctx) error {
     }
 
     // Delete the project
-    if _, err := pcol.DeleteOne(ctx, bson.M{"_id": objID, "user_id": userID}); err != nil {
+    if _, err := pcol.DeleteOne(ctx, bson.M{"_id": objID, "userId": userID}); err != nil {
         return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to delete project"})
     }
 

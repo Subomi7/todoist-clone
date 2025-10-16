@@ -16,7 +16,7 @@ function App() {
           <Route path='/' element={<Inbox />} />
           <Route path='/completed' element={<CompleteTask />} />
           <Route path='/add' element={<AddTask />} />
-          <Route path='/projects/:pID' element={<MyProject />} />
+          <Route path='/projects/:id' element={<MyProject />} />
         </Route>
         <Route path='/auth/login' element={<Login />} />
         <Route path='/auth/signup' element={<SignUp />} />

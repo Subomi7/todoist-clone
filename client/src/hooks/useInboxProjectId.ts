@@ -1,21 +1,21 @@
 // src/hooks/useInboxProjectId.ts
-import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { getProjects } from "@/api/project";
-import { getTasks } from "@/api/task";
-import type { Project } from "@/types/project";
-import type { Task } from "@/types/task";
+import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { getProjects } from '@/api/project';
+import { getTasks } from '@/api/task';
+import type { Project } from '@/types/project';
+import type { Task } from '@/types/task';
 
 /**
- * Returns an object with:
+ * Returns:
  *  - inboxId: string | undefined
  *  - projects: Project[]
  *  - isLoading, isError, error
- *  - rawProjects, rawTasks (raw API responses) for debugging
+ *  - rawProjects, rawInboxTasks (debug)
  *
- * Fallback behaviour:
- *  - if projects list contains an Inbox (by name) or isSystem project — use it
- *  - else if projects empty, derive the most common projectId from tasks (non-completed)
+ * Flow:
+ *  - Prefer explicit Inbox project (by name or system flag).
+ *  - If missing, fallback to derive inboxId from tasks fetched via ?inbox=true.
  */
 export function useInboxProjectId() {
   const {
@@ -24,36 +24,39 @@ export function useInboxProjectId() {
     isError: projectsError,
     error: projectsFetchError,
   } = useQuery({
-    queryKey: ["projects"],
+    queryKey: ['projects'],
     queryFn: () => getProjects(),
   });
 
+  // Fetch only inbox tasks (leverages backend inbox=true filter)
   const {
-    data: tasksResp,
-    isLoading: tasksLoading,
-    isError: tasksError,
-    error: tasksFetchError,
+    data: inboxTasksResp,
+    isLoading: inboxLoading,
+    isError: inboxError,
+    error: inboxFetchError,
   } = useQuery({
-    queryKey: ["tasks", undefined, false],
-    queryFn: () => getTasks(undefined, false),
+    queryKey: ['tasks', null, null, true],
+    queryFn: () =>
+      getTasks(undefined, undefined /* completed */, true /* inboxOnly */),
   });
 
-  // Normalize projects array once (memoized)
+  // Normalize projects
   const projects = useMemo<Project[]>(() => {
     return (projectsResp?.data ?? []) as Project[];
   }, [projectsResp]);
 
-  // Normalize tasks array once (memoized)
-  const tasks = useMemo<Task[]>(() => {
-    // getTasks returns { tasks, meta } shape in our client
-    return (tasksResp?.tasks ?? []) as Task[];
-  }, [tasksResp]);
+  // Normalize inbox tasks
+  const inboxTasks = useMemo<Task[]>(() => {
+    return (inboxTasksResp?.tasks ?? []) as Task[];
+  }, [inboxTasksResp]);
 
-  // Compute inboxId using the stable memoized `projects` and `tasks`
+  // Compute inboxId
   const inboxId = useMemo<string | undefined>(() => {
-    // Prefer explicit Inbox from projects (by name or isSystem flag)
+    // Prefer explicit Inbox project
     if (projects && projects.length > 0) {
-      const byName = projects.find((p) => String(p.name ?? "").toLowerCase() === "inbox");
+      const byName = projects.find(
+        (p) => String(p.name ?? '').toLowerCase() === 'inbox'
+      );
       const bySystem = projects.find((p: any) => Boolean((p as any).isSystem));
       const chosen = byName ?? bySystem;
       if (chosen) {
@@ -61,34 +64,27 @@ export function useInboxProjectId() {
       }
     }
 
-    // Fallback: derive most-common projectId from the user's tasks (ignore null)
-    if (tasks && tasks.length > 0) {
+    // Fallback: derive from inbox tasks if present
+    if (inboxTasks && inboxTasks.length > 0) {
       const freq: Record<string, number> = {};
-      for (const t of tasks) {
+      for (const t of inboxTasks) {
         if (t.projectId) {
           freq[t.projectId] = (freq[t.projectId] || 0) + 1;
         }
       }
-      const entries = Object.entries(freq);
-      if (entries.length > 0) {
-        entries.sort((a, b) => b[1] - a[1]);
-        return entries[0][0];
-      }
-
-      // If there are tasks with a null/empty project, we could optionally return undefined
-      // so UI can treat them as "no project" group. For now, return undefined.
+      return Object.entries(freq).sort((a, b) => b[1] - a[1])[0]?.[0];
     }
 
     return undefined;
-  }, [projects, tasks]);
+  }, [projects, inboxTasks]);
 
   return {
     inboxId,
     projects,
-    isLoading: projectsLoading || tasksLoading,
-    isError: projectsError || tasksError,
-    error: projectsFetchError ?? tasksFetchError,
+    isLoading: projectsLoading || inboxLoading,
+    isError: projectsError || inboxError,
+    error: projectsFetchError ?? inboxFetchError,
     rawProjects: projectsResp,
-    rawTasks: tasksResp,
+    rawInboxTasks: inboxTasksResp,
   };
 }

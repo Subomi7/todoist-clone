@@ -11,16 +11,21 @@ export function useCreateTask() {
   return useMutation<ApiResponse<{ task: Task }>, Error, TaskPayload>({
     mutationFn: (payload: TaskPayload) => createTask(payload),
     onSuccess: (_res, variables) => {
-      // variables is the TaskPayload we sent. Use its projectId if present.
+      // variables is the TaskPayload we sent
       const pid = (variables && (variables.projectId as string | undefined)) ?? null;
 
-      // Invalidate project-scoped key
-      qc.invalidateQueries({ queryKey: ["tasks", pid, false] }); // inbox / project list (not completed)
-      // Also invalidate top-level tasks list (no project)
-      qc.invalidateQueries({ queryKey: ["tasks", null, false] });
-      // optionally invalidate any top-level tasks keys that might be used elsewhere:
-      qc.invalidateQueries({ queryKey: ["tasks"] });
+      // If projectId is missing → inbox task
+      const inboxOnly = pid ? null : true;
+
+      // Invalidate the exact task list that useTasks would query
+      qc.invalidateQueries({
+        queryKey: ["tasks", pid, false, inboxOnly],
+      });
+
+      // Also invalidate the generic "all tasks" cache if you ever query it
+      qc.invalidateQueries({
+        queryKey: ["tasks"],
+      });
     },
   });
 }
-

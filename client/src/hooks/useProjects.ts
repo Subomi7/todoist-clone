@@ -1,33 +1,32 @@
 // src/hooks/useProjects.ts
-import { useQuery } from '@tanstack/react-query';
-import { getProjects } from '@/api/project';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getProjects, createProject } from '@/api/project';
 import type { Project as ProjectType } from '@/types/project';
 
-type UseProjectsResult = {
-  projects: ProjectType[];
-  inboxId?: string;
-  isLoading: boolean;
-  isError: boolean;
-  error: unknown;
-  raw?: unknown;
-};
+export function useProjects() {
+  const queryClient = useQueryClient();
 
-export function useProjects(): UseProjectsResult {
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['projects'],
-    queryFn: () => getProjects(),
+    queryFn: getProjects,
   });
 
-  // Normalize shape -> Project[]
   const projects = (data?.data ?? []) as ProjectType[];
 
-  // find inbox: by name "Inbox" or isSystem flag (case-insensitive)
   const inboxProject =
     projects.find((p) => String(p.name ?? '').toLowerCase() === 'inbox') ??
     projects.find((p) => Boolean((p as any).isSystem));
+  const inboxId = inboxProject
+    ? ((inboxProject as any)._id ?? (inboxProject as any).id)
+    : undefined;
 
-  // pick id/_id whichever is present
-  const inboxId = inboxProject ? ((inboxProject as any)._id ?? (inboxProject as any).id) : undefined;
+  // --- NEW mutation for creating projects ---
+  const createProjectMutation = useMutation({
+    mutationFn: createProject,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+    },
+  });
 
   return {
     projects,
@@ -35,6 +34,6 @@ export function useProjects(): UseProjectsResult {
     isLoading,
     isError,
     error,
-    raw: data,
+    createProjectMutation,
   };
 }

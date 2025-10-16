@@ -26,32 +26,3 @@ export function useUpdateTask() {
     },
   });
 }
-
-// // src/hooks/useUpdateTask.ts
-// import { useMutation, useQueryClient } from '@tanstack/react-query';
-// import { updateTask, type ApiResponse } from '@/api/task';
-// import type { Task } from '@/types/task';
-
-// type UpdateArgs = {
-//   id: string;
-//   patch: Partial<{
-//     title: string;
-//     description: string;
-//     completed: boolean;
-//     projectId: string; // <-- only string
-//     priority?: number;
-//     dueDate?: string;
-//   }>;
-// };
-
-// export function useUpdateTask() {
-//   const qc = useQueryClient();
-
-//   return useMutation<ApiResponse<{ task: Task }>, Error, UpdateArgs>({
-//     mutationFn: ({ id, patch }) => updateTask(id, patch),
-//     onSuccess: () => {
-//       qc.invalidateQueries({ queryKey: ["tasks"] }); // refresh all
-//       qc.invalidateQueries({ queryKey: ["tasks", "completed"] });
-//     },
-//   });
-// }
