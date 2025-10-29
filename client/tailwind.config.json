@@ -1,0 +1,14 @@
+{
+  "theme": {
+    "extend": {
+      "fontFamily": {
+        "todoist": ["Segoe UI", "Roboto", "Helvetica Neue", "Arial", "sans-serif"]
+      },
+      "fontWeight": {
+        "medium": "500",
+        "semibold": "600",
+        "bold": "700"
+      }
+    }
+  }
+}

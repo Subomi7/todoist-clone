@@ -21,6 +21,9 @@ import { MdDeleteOutline } from 'react-icons/md';
 import { useDeleteTask } from '@/hooks/useDeleteTask';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { CiCalendarDate } from 'react-icons/ci';
+import { FaPlusCircle } from 'react-icons/fa';
+import { useSidebar } from '@/components/ui/sidebar';
 
 /** priority -> classes */
 const getPriorityClass = (priority: 1 | 2 | 3) => {
@@ -37,6 +40,8 @@ const getPriorityClass = (priority: 1 | 2 | 3) => {
 };
 
 const Inbox: React.FC = () => {
+  const sidebar = useSidebar(); // ✅ Get sidebar context
+  const isMobile = sidebar.isMobile;
   const updateTaskMutation = useUpdateTask();
   const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -44,6 +49,7 @@ const Inbox: React.FC = () => {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [editTask, setEditTask] = useState<Task | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [open, setOpen] = useState(false);
 
   const { mutate: deleteTask, isPending } = useDeleteTask();
   const { inboxId, isLoading: loadingInboxResolve } =
@@ -111,6 +117,10 @@ const Inbox: React.FC = () => {
       </div>
     );
 
+  const handleAddTaskDone = () => {
+    if (isMobile) sidebar.setOpenMobile(false); // ✅ Close sidebar after adding
+  };
+
   return (
     <>
       <main className='p-10 lg:p-24'>
@@ -153,7 +163,7 @@ const Inbox: React.FC = () => {
                   key={task._id}
                   className='flex items-center justify-between inbox-description gap-3 border-b border-gray-300 last:border-b-0'
                 >
-                  <div className='flex items-start inbox-description gap-3 py-4 mx-9'>
+                  <div className='flex items-start inbox-description gap-3 py-4 lg:mx-9'>
                     <Checkbox
                       id={`task-${task._id}`}
                       checked={task.completed}
@@ -163,12 +173,20 @@ const Inbox: React.FC = () => {
                       )}`}
                     />
                     <div>
-                      <h2 className='text-sm'>{task.title}</h2>
-                      {task.dueDate && (
-                        <p className='text-xs text-gray-400'>
-                          {new Date(task.dueDate).toLocaleDateString()}
-                        </p>
-                      )}
+                      <h2 className='text-[13px]'>{task.title}</h2>
+                      <h3 className='text-[11px] text-[#757474]'>
+                        {task.description}
+                      </h3>
+                      <span className='flex items-center text-[12px] text-[#b81f00]'>
+                        <CiCalendarDate />
+                        <span>
+                          {task.dueDate && (
+                            <p className='text-[11px] text-[#b81f00]'>
+                              {new Date(task.dueDate).toLocaleDateString()}
+                            </p>
+                          )}
+                        </span>
+                      </span>
                     </div>
                   </div>
                   <div className='flex items-center gap-4'>
@@ -188,6 +206,27 @@ const Inbox: React.FC = () => {
                   </div>
                 </div>
               ))}
+              <Dialog open={open} onOpenChange={setOpen}>
+                <form>
+                  <DialogTrigger asChild>
+                    <button className='flex items-center gap-2.5 py-2 rounded-md text-[#dc4c3e] w-full cursor-pointer font-semibold text-[13.5px] font-todoist'>
+                      <FaPlusCircle className='h-4.5 w-5' />
+                      <span className='text-[#757474]'>Add task</span>
+                    </button>
+                  </DialogTrigger>
+
+                  {/* Render AddTaskModalContent only when dialog is open. Pass inboxId */}
+                  {open && (
+                    <AddTaskModalContent
+                      onDone={() => {
+                        setOpen(false);
+                        handleAddTaskDone();
+                      }}
+                      projectId={inboxId}
+                    />
+                  )}
+                </form>
+              </Dialog>
             </div>
           )}
         </div>

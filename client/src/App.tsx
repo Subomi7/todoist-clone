@@ -7,6 +7,7 @@ import AddTask from './pages/AddTask';
 import MyProject from './pages/MyProject';
 import Login from './auth/Login';
 import SignUp from './auth/SignUp';
+import { Toaster } from 'sonner';
 
 function App() {
   return (
@@ -21,6 +22,7 @@ function App() {
         <Route path='/auth/login' element={<Login />} />
         <Route path='/auth/signup' element={<SignUp />} />
       </Routes>
+      <Toaster  richColors position="top-center" />
     </>
   );
 }

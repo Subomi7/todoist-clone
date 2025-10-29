@@ -39,6 +39,7 @@ import {
 import { Button } from '@/components/ui/button';
 
 import { useDeleteProject } from '@/hooks/useDeleteProject';
+import { CiHashtag } from 'react-icons/ci';
 
 // NOTE: keep this local shape if you want to display only a few fields in the sidebar.
 // If your API returns different field names (e.g. _id) adapt where you render the ID.
@@ -53,10 +54,19 @@ interface Project {
 
 export default function AppSidebar() {
   // UI state
+  const sidebar = useSidebar(); // ✅ Get sidebar context
+  const isMobile = sidebar.isMobile;
+
+  const handleNavClick = () => {
+    if (isMobile) sidebar.setOpenMobile(false); // ✅ Close mobile sidebar
+  };
+
+  const handleAddTaskDone = () => {
+    if (isMobile) sidebar.setOpenMobile(false); // ✅ Close sidebar after adding
+  };
   const [projectsOpen, setProjectsOpen] = useState(true);
   const [showCreateProject, setShowCreateProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
-  const [selectedColor, setSelectedColor] = useState('bg-blue-500');
   const [open, setOpen] = useState(false);
 
   // get projects + inbox id from hook
@@ -100,26 +110,22 @@ export default function AppSidebar() {
     );
   };
 
-  const sidebarCtx = useSidebar() as any;
-  let isSidebarOpen = false;
-  if (sidebarCtx !== undefined && sidebarCtx !== null) {
-    if (typeof sidebarCtx.isOpen === 'boolean')
-      isSidebarOpen = sidebarCtx.isOpen;
-    else if (typeof sidebarCtx.open === 'boolean')
-      isSidebarOpen = sidebarCtx.open;
-    else if (typeof sidebarCtx.state === 'string')
-      isSidebarOpen = ['open', 'opened'].includes(sidebarCtx.state);
-  }
-  const triggerPositionClass = isSidebarOpen ? 'left-[220px]' : 'left-4';
+  // const sidebarCtx = useSidebar() as any;
+  // let isSidebarOpen = false;
+  // if (sidebarCtx !== undefined && sidebarCtx !== null) {
+  //   if (typeof sidebarCtx.isOpen === 'boolean')
+  //     isSidebarOpen = sidebarCtx.isOpen;
+  //   else if (typeof sidebarCtx.open === 'boolean')
+  //     isSidebarOpen = sidebarCtx.open;
+  //   else if (typeof sidebarCtx.state === 'string')
+  //     isSidebarOpen = ['open', 'opened'].includes(sidebarCtx.state);
+  // }
+  // const triggerPositionClass = isSidebarOpen ? 'left-[220px]' : 'left-4';
   const [openDialog, setOpenDialog] = useState(false);
   const { mutate: deleteProject, isPending } = useDeleteProject();
 
   return (
     <Sidebar className='bg-[#fcfaf8] text-black border-r'>
-      <SidebarTrigger
-        className={`fixed ${triggerPositionClass} top-6 z-50 p-2 rounded-md shadow hover:bg-slate-100 transition-all duration-200`}
-        aria-label='Toggle sidebar'
-      />
       <SidebarContent>
         <SidebarGroup>
           <SidebarHeader className='border-d border-gray-800 px-3 py-3 flex flex-row items justify-between'>
@@ -130,9 +136,17 @@ export default function AppSidebar() {
                 className='w-9 h-9 rounded-full object-cover'
               />
               <div>
-                <p className='text-sm font-medium'>Jon Doe</p>
-                <p className='text-xs text-gray-400'>Free Plan</p>
+                <p className='font-todoist font-semibold text-[15px]'>
+                  Jon Doe
+                </p>
+                <p className='font-todoist font-normal text-[12px] text-gray-400'>
+                  Free Plan
+                </p>
               </div>
+              {/* <SidebarTrigger
+        className={`fixed ${triggerPositionClass} top-6 z-60 p-2 rounded-md bg-white/80 backdrop-blur-sm border shadow-sm hover:bg-slate-100 transition-all duration-200`}
+        aria-label='Toggle sidebar'
+      /> */}
             </div>
           </SidebarHeader>
 
@@ -141,16 +155,19 @@ export default function AppSidebar() {
               <Dialog open={open} onOpenChange={setOpen}>
                 <form>
                   <DialogTrigger asChild>
-                    <button className='flex items-center gap-3 px-3 py-2 rounded-md text-[#dc4c3e] w-full cursor-pointer'>
-                      <FaPlusCircle className='h-5 w-5' />
-                      <span>Add Task</span>
+                    <button className='flex items-center gap-2.5 px-2.5 py-2 rounded-md text-[#dc4c3e] w-full cursor-pointer font-semibold text-[13.5px] font-todoist'>
+                      <FaPlusCircle className='h-4.5 w-5' />
+                      <span className='text-[#b81f00]'>Add task</span>
                     </button>
                   </DialogTrigger>
 
                   {/* Render AddTaskModalContent only when dialog is open. Pass inboxId */}
                   {open && (
                     <AddTaskModalContent
-                      onDone={() => setOpen(false)}
+                      onDone={() => {
+                        setOpen(false);
+                        handleAddTaskDone(); 
+                      }}
                       projectId={inboxId}
                     />
                   )}
@@ -158,33 +175,43 @@ export default function AppSidebar() {
               </Dialog>
             </SidebarMenuItem>
 
-            <SidebarMenuItem>
+            <SidebarMenuItem onClick={handleNavClick}>
               <SidebarMenuButton asChild>
                 <NavLink
                   to='/'
-                  className={`${baseLink} ${
+                  className={`${baseLink} font-todoist font-normal text-[13.4px] ${
                     active === 'inbox'
-                      ? 'bg-[#ffefe5] text-[#dc4c3e] font-medium'
-                      : 'bg-[#fafafa] text-black hover:bg-[#ffefe5] hover:text-[#dc4c3e]'
+                      ? 'bg-[#ffefe5] text-[#b81f00] font-normal text-sm'
+                      : 'bg-[#fafafa] text-black hover:bg-[#dc4c3e] hover:text-[#b81f00] text-sm'
                   }`}
                 >
-                  <Inbox className='h-5 w-5' />
+                  <Inbox
+                    className={`h-4 w-5 ${
+                      active === 'inbox' ? 'text-[#b81f00]' : 'text-[#757474]'
+                    }`}
+                  />
                   <span>Inbox</span>
                 </NavLink>
               </SidebarMenuButton>
             </SidebarMenuItem>
 
-            <SidebarMenuItem>
+            <SidebarMenuItem onClick={handleNavClick}>
               <SidebarMenuButton asChild>
                 <NavLink
                   to='/completed'
-                  className={`${baseLink} ${
+                  className={`${baseLink} font-todoist font-normal text-[13.4px] ${
                     active === 'completed'
-                      ? 'bg-[#ffefe5] text-[#dc4c3e] font-medium'
-                      : 'bg-[#fafafa] text-black hover:bg-[#ffefe5] hover:text-[#dc4c3e]'
+                      ? 'bg-[#ffefe5] text-[#b81f00] font-medium text-md'
+                      : 'bg-[#fafafa] text-black hover:bg-[#dc4c3e] hover:text-[#dc4c3e] text-sm'
                   }`}
                 >
-                  <CheckCircle2 className='h-5 w-5' />
+                  <CheckCircle2
+                    className={`h-4 w-5 ${
+                      active === 'completed'
+                        ? 'text-[#b81f00]'
+                        : 'text-[#757474]'
+                    }`}
+                  />
                   <span>Completed</span>
                 </NavLink>
               </SidebarMenuButton>
@@ -194,24 +221,28 @@ export default function AppSidebar() {
 
         <SidebarGroup>
           <div
-            className='flex items-center justify-between cursor-pointer px-3 py-2 rounded-md'
+            className='flex items-center justify-between cursor-pointer pl-2 py-2 rounded-md'
             onClick={() => setProjectsOpen(!projectsOpen)}
           >
+            <div className=''>
+              <SidebarGroupLabel className='font-todoist tracking-wide text-[12px] font-semibold text-gray-500'>
+                My Projects
+              </SidebarGroupLabel>
+            </div>
             <div className='flex items-center gap-2'>
+              <Plus
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowCreateProject(true);
+                }}
+                className='h-4 w-4 text-gray-400 hover:text-black'
+              />
               <ChevronDown
-                className={`h-4 w-4 transition-transform ${
+                className={`h-4 w-4 text-gray-400 hover:text-black transition-transform ${
                   projectsOpen ? 'rotate-180' : ''
                 }`}
               />
-              <SidebarGroupLabel>Projects</SidebarGroupLabel>
             </div>
-            <Plus
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowCreateProject(true);
-              }}
-              className='h-4 w-4 text-gray-400 hover:text-black'
-            />
           </div>
 
           {projectsOpen && (
@@ -220,16 +251,18 @@ export default function AppSidebar() {
                 {apiProjects
                   .filter(
                     (p) =>
+                      p &&
+                      (p._id || p.id || p.name) &&
                       p.name?.toLowerCase() !== 'inbox' &&
-                      !(p as any).isSystem &&
-                      p.id
+                      !(p as any).isSystem
                   )
                   .map((project: Project) => {
                     // prefer _id or id as link param
                     const pid =
                       (project as any)._id ??
                       (project as any).id ??
-                      String(project.name);
+                      String(project.name ?? '');
+                    if (!pid) return null;
 
                     return (
                       <SidebarMenuItem key={pid}>
@@ -237,18 +270,14 @@ export default function AppSidebar() {
                           <NavLink
                             to={`/projects/${pid}`}
                             className={({ isActive }) =>
-                              `flex items-center gap-3 px-3 py-2 rounded-md ${
+                              `flex items-center gap-2 px-3 py-2 rounded-md font-todoist text-[13.4px] ${
                                 isActive
                                   ? 'bg-[#343541] text-white'
                                   : 'hover:bg-[#343541]'
                               }`
                             }
                           >
-                            <span
-                              className={`w-3 h-3 rounded-full ${
-                                project.color ?? 'bg-gray-400'
-                              }`}
-                            />
+                            <CiHashtag className='text-[#757474]' />
                             <span className='flex-1'>{project.name}</span>
                             <span className='text-xs text-gray-400'>
                               {project.taskCount ?? 0}

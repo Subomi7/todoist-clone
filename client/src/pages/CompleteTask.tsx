@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getProjects } from '@/api/project';
 import type { Project } from '@/types/project';
 import profile from '@/assets/profile.png';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const CompletedPage = () => {
   // fetch all completed tasks
@@ -33,7 +34,16 @@ const CompletedPage = () => {
 
   const [selectedProject, setSelectedProject] = useState<string>('all');
 
-  if (loadingTasks) return <p>Loading...</p>;
+  if (loadingTasks)
+    return (
+      <div className='flex flex-col items-center justify-center space-y-3 pt-16'>
+        <Skeleton className='h-[125px] w-full rounded-xl' />
+        <div className='space-y-2'>
+          <Skeleton className='h-7 w-full' />
+          <Skeleton className='h-4 w-full' />
+        </div>
+      </div>
+    );
 
   // filter by project
   const filteredTasks = completedTasks.filter((task) => {
@@ -50,7 +60,7 @@ const CompletedPage = () => {
       : projects.find((p) => p.id === selectedProject)?.name ?? 'Unknown';
 
   return (
-    <div className='p-10 lg:p-12 lg:px-24'>
+    <div className='p-8 lg:pt-2 pt-14 lg:p-12 lg:px-24 font-todoist'>
       <div className='flex items-center gap-2'>
         <h1 className='text-lg font-bold'>Activity: {currentProjectName}</h1>
         {/* Dropdown */}
@@ -78,7 +88,7 @@ const CompletedPage = () => {
                 };
           return (
             <div key={task._id}>
-              <h2 className='py-2 border-b border-gray-300 text-sm text-gray-600'>
+              <h2 className='py-2 border-b border-gray-300 text-[13px] text-black font-bold'>
                 <strong>
                   {task.dueDate
                     ? new Date(task.dueDate).toLocaleDateString()
@@ -86,16 +96,19 @@ const CompletedPage = () => {
                 </strong>
               </h2>
               <div className='flex items-center justify-between'>
-                <div className='flex items-center gap-2.5 py-3 px-3.5'>
+                <div className='flex items-center gap-2.5 py-3 lg:px-3.5'>
                   <img
                     src={profile}
                     alt='Profile'
                     className='w-9 h-9 rounded-full object-cover'
                   />
-                  <p className='text-[14px]'>{`You completed a task: ${task.title}`}</p>
+                  <span className='text-[13px]'>
+                    <strong>You </strong>completed a task:{' '}
+                    <span className='underline'>{task.title}</span>
+                  </span>
                 </div>
                 <div>
-                  <p className='text-sm'>{project.name}</p>
+                  <p className='text-[10px]'>{project.name}</p>
                 </div>
               </div>
             </div>
